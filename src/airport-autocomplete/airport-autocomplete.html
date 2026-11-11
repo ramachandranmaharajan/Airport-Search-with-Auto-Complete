@@ -1,0 +1,47 @@
+<div class="autocomplete">
+  <label [for]="'airport-input-' + label" class="label">{{ label }}</label>
+  <input
+    [id]="'airport-input-' + label"
+    type="text"
+    class="input"
+    [formControl]="control"
+    (keydown)="onKeyDown($event)"
+    autocomplete="off"
+    role="combobox"
+    [attr.aria-expanded]="open"
+    aria-controls="airport-list"
+    [attr.aria-activedescendant]="
+      open && activeIndex >= 0 ? 'airport-option-' + activeIndex : null
+    "
+  />
+
+  @if (open) {
+    <ul id="airport-list" class="dropdown" role="listbox">
+      @if (results.length === 0) {
+        <li class="dropdown-item no-match">No airports match</li>
+      } @else {
+        @for (airport of results; track airport.code; let i = $index) {
+          <li
+            [id]="'airport-option-' + i"
+            class="dropdown-item"
+            [class.focused]="i === activeIndex"
+            role="option"
+            [attr.aria-selected]="i === activeIndex"
+            (mouseenter)="onItemMouseEnter(i)"
+            (mousedown)="$event.preventDefault()"
+            (click)="select(airport)"
+          >
+            <span class="code">{{ airport.code }}</span>
+            <span class="city">{{ airport.city }}</span>
+            <span class="country">{{ airport.country }}</span>
+            <span class="name">{{ airport.name }}</span>
+          </li>
+        }
+      }
+    </ul>
+  }
+</div>
+
+@if (selected) {
+  <pre class="selected-json">{{ selected | json }}</pre>
+}

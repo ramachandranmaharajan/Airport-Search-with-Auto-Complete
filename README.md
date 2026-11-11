@@ -1,59 +1,58 @@
-# AirportSearchWithAutocomplete
+# Airport Search with Autocomplete
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.5.
+Angular 21 standalone app implementing a single airport autocomplete input.
 
-## Development server
+## Stack
 
-To start a local development server, run:
+Angular 21 (standalone components) + TypeScript + RxJS + Angular `HttpClient`. Chosen because the project was already scaffolded as an Angular CLI app, and the task explicitly asks for a reactive `FormControl` and RxJS (`debounceTime`, `distinctUntilChanged`, `switchMap`). Plain HTML/CSS only — no UI or autocomplete libraries.
 
-```bash
-ng serve
-```
+## How to run
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+Install dependencies:
 
 ```bash
-ng generate component component-name
+npm install
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+Start the dev server:
 
 ```bash
-ng generate --help
+npm start
 ```
 
-## Building
+(or `ng serve`)
 
-To build the project run:
+Opens at `http://localhost:4200/`.
+
+Run unit tests:
 
 ```bash
-ng build
+npm test
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
+Production build:
 
 ```bash
-ng test
+npm run build
 ```
 
-## Running end-to-end tests
+## How the autocomplete avoids filtering on every keystroke
 
-For end-to-end (e2e) testing, run:
+The input's `valueChanges` observable is piped through `debounceTime(250)` and `distinctUntilChanged()` before `switchMap` calls `AirportLookup.search`. `debounceTime` waits until the user pauses typing for ~250 ms, so rapid keystrokes collapse into a single filter pass, and `distinctUntilChanged` skips work when the value hasn't actually changed. This matters for performance and UX: it avoids redundant filtering/layout on every keystroke, reduces jank on large datasets, and prevents stale intermediate results from flickering in the dropdown.
 
-```bash
-ng e2e
-```
+## Keeping keyboard navigation in sync with mouse hover
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+Both interactions update one shared piece of state, `activeIndex`. Arrow keys increment/decrement it (clamped to the list bounds) and `mouseenter` on an item sets it directly to that item's index. Because there is a single source of truth, the visually focused item (`.focused` class driven by `i === activeIndex`) always reflects either the last keyboard move or the last hover, whichever happened most recently. `mousedown` on items is prevented so the input keeps focus and clicks still register.
 
-## Additional Resources
+## If we supported 10,000 airports instead of 34
 
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+The first change would be to move filtering off the main thread / avoid O(n) scans per query — e.g. build an inverted index (or use a small search index) and only slice the top 5, or push the filtering into a Web Worker. With 10k rows the current linear `filter` + `slice` would still run, but debounce + a precomputed lowercase index keeps it responsive; the single biggest win is precomputing lowercased code/city and indexing.
+
+## Known limitations
+
+- No outside-click handling beyond a document click listener; very fast interactions could race, but selection uses `mousedown` prevention to stay reliable.
+- `activeIndex` defaults to the first result on each new result set, which may not match a user's expectation of "no focus until arrow key".
+- No ARIA live region / full screen-reader polish; basic `role`/`aria-*` attributes are present.
+- Airports are loaded from `/assets/airports.json`; if the file is missing the dropdown shows "No airports match".
+- No highlighting of the matched substring within items.
+- Cache uses `shareReplay` with `refCount`; an errored load clears the cache so a retry is possible, but in-flight dedup is basic.
